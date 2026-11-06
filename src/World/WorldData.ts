@@ -1,4 +1,4 @@
-import { type JSONValue, type JSONObject } from "../utils/Json.js";
+import { type JSONValue, type JSONObject } from "../lib/Json.js";
 
 /**
  * WorldData is a class that represents a type of data found within the world.

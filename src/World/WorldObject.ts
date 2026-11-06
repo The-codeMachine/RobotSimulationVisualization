@@ -1,4 +1,4 @@
-import type { JSONObject } from "../utils/Json.js";
+import type { JSONObject } from "../lib/Json.js";
 import { WorldData } from "./WorldData.js";
 
 class WorldObject {
