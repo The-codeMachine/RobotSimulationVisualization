@@ -1,5 +1,6 @@
 import type { Transform } from "../lib/position/Transform";
 import type { Vector2 } from "../lib/position/Vector2";
+import { loadFile } from "../services/file/file";
 import { WorldObject } from "./WorldObject";
 
 /**
@@ -12,6 +13,15 @@ export class World {
 
     constructor(filePath: string) {
         this.objects = new Map<Vector2, WorldObject>();
+
+        try {
+            const data = loadFile(filePath);
+            this.parseJSONToObjects(JSON.parse(data));
+        } catch (error) {
+            console.error(`Failed to load file:`, error);
+            throw error;
+        }
+
     }
 
     /**
@@ -74,5 +84,9 @@ export class World {
         } else {
             return position as Vector2;
         }
+    }
+
+    private parseJSONToObjects(json: string): void {
+
     }
 }
