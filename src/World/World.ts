@@ -1,6 +1,6 @@
+import type { JsonObject } from "type-fest";
 import type { Transform } from "../lib/position/Transform";
-import type { Vector2 } from "../lib/position/Vector2";
-import { loadFile } from "../services/file/file";
+import { jsonToVector2, type Vector2 } from "../lib/position/Vector2";
 import { WorldObject } from "./WorldObject";
 
 /**
@@ -11,17 +11,10 @@ import { WorldObject } from "./WorldObject";
 export class World {
     private objects: Map<Vector2, WorldObject>;
 
-    constructor(filePath: string) {
+    constructor(json: JsonObject) {
         this.objects = new Map<Vector2, WorldObject>();
 
-        try {
-            const data = loadFile(filePath);
-            this.parseJSONToObjects(JSON.parse(data));
-        } catch (error) {
-            console.error(`Failed to load file:`, error);
-            throw error;
-        }
-
+        this.parseJSONToObjects(json);
     }
 
     /**
@@ -80,13 +73,81 @@ export class World {
      */
     private safeParsePosition(position: Transform | Vector2): Vector2 {
         if ("type" in position && position.type === "transform") {
-            return (position as Transform).position; 
+            return (position as Transform).position;
         } else {
             return position as Vector2;
         }
     }
 
-    private parseJSONToObjects(json: string): void {
+    private isJsonObject(value: unknown): value is JsonObject {
+        return (
+            typeof value === "object" &&
+            value !== null &&
+            !Array.isArray(value)
+        );
+    }
 
+    private parseJSONToObjects(json: JsonObject): void {
+        // Validate version
+        if (json.version !== 1) {
+            throw new Error(`Unsupported world JSON version: ${json.version}`);
+        }
+
+        // Validate objects array
+        if (!Array.isArray(json.objects)) {
+            throw new Error("World JSON must contain an objects array");
+        }
+
+        for (const object of json.objects) {
+            if (!this.isJsonObject(object)) {
+                throw new Error("Invalid object encountered in world JSON");
+            }
+
+            // Validate object properties
+            if (
+                typeof object.type !== "string" ||
+                typeof object.glyph !== "string" ||
+                typeof object.unique_id !== "string"
+            ) {
+                throw new Error("Invalid WorldObject properties");
+            }
+
+            // Validate transform
+            const transform = object.transform;
+
+            if (!this.isJsonObject(transform)) {
+                throw new Error(`Invalid transform for ${object.unique_id}`);
+            }
+
+            // Validate Vector2
+            const vector2 = transform.vector2;
+
+            if (!this.isJsonObject(vector2)) {
+                throw new Error(`Invalid Vector2 for ${object.unique_id}`);
+            }
+
+            if (
+                typeof vector2.x !== "number" ||
+                typeof vector2.y !== "number" ||
+                typeof transform.rotation !== "number"
+            ) {
+                throw new Error(`Invalid position for ${object.unique_id}`);
+            }
+
+            // Construct WorldObject
+            const worldObject = new WorldObject({
+                data: {
+                    type: object.type,
+                    glyph: object.glyph
+                },
+                transform: transform,
+                uniqueId: object.unique_id
+            });
+
+            // Insert into world
+            const position: Vector2 = jsonToVector2(vector2);
+
+            this.insertObject(position, worldObject);
+        }
     }
 }
