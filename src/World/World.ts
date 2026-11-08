@@ -104,8 +104,7 @@ export class World {
             }
 
             // Validate object properties
-            if (
-                typeof object.type !== "string" ||
+            if (typeof object.type !== "string" ||
                 typeof object.glyph !== "string" ||
                 typeof object.unique_id !== "string"
             ) {
@@ -126,8 +125,7 @@ export class World {
                 throw new Error(`Invalid Vector2 for ${object.unique_id}`);
             }
 
-            if (
-                typeof vector2.x !== "number" ||
+            if (typeof vector2.x !== "number" ||
                 typeof vector2.y !== "number" ||
                 typeof transform.rotation !== "number"
             ) {
