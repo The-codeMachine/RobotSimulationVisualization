@@ -1,7 +1,7 @@
 import { type Vector2 } from "../lib/position/Vector2";
-import type { WorldObject } from "../World/WorldObject";
+import type { WorldObject } from "./WorldObject";
 
-export class Grid {
+export class WorldGrid {
     // Spatial bucket mapped to an array of objects inside that cell area
     private buckets = new Map<number | bigint, { pos: Vector2; value: string }[]>();
 
@@ -149,18 +149,13 @@ export class Grid {
      * @param b Opposing corner of the viewing rectangle.
      * @param pixelsPerUnit Number of pixels per world unit.
      */
-    public display(
-        a: Vector2,
-        b: Vector2,
-        pixelsPerUnit: number = 20
-    ): HTMLDivElement {
+    public display(a: Vector2, b: Vector2, pixelsPerUnit: number = 20): HTMLDivElement {
         const minX = Math.min(a.x, b.x);
         const maxX = Math.max(a.x, b.x);
         const minY = Math.min(a.y, b.y);
         const maxY = Math.max(a.y, b.y);
 
-        if (
-            !Number.isFinite(minX) ||
+        if (!Number.isFinite(minX) ||
             !Number.isFinite(maxX) ||
             !Number.isFinite(minY) ||
             !Number.isFinite(maxY) ||
@@ -192,15 +187,12 @@ export class Grid {
         container.style.backgroundColor = "#f8f8f8";
 
         container.style.backgroundImage = `
-        linear-gradient(to right, #888 1px, transparent 1px),
-        linear-gradient(to bottom, #888 1px, transparent 1px)
-    `;
+            linear-gradient(to right, #888 1px, transparent 1px),
+            linear-gradient(to bottom, #888 1px, transparent 1px)
+        `;
 
-        container.style.backgroundSize =
-            `${pixelsPerUnit}px ${pixelsPerUnit}px`;
-
-        container.style.backgroundPosition =
-            `${offsetX}px ${offsetY}px`;
+        container.style.backgroundSize = `${pixelsPerUnit}px ${pixelsPerUnit}px`;
+        container.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
 
         // Get objects in the requested region.
         const objects = this.queryRectangle(
@@ -217,11 +209,8 @@ export class Grid {
 
             element.style.position = "absolute";
 
-            element.style.left =
-                `${(item.pos.x - minX) * pixelsPerUnit}px`;
-
-            element.style.top =
-                `${(item.pos.y - minY) * pixelsPerUnit}px`;
+            element.style.left = `${(item.pos.x - minX) * pixelsPerUnit}px`;
+            element.style.top = `${(item.pos.y - minY) * pixelsPerUnit}px`;
 
             element.style.width = `${pixelsPerUnit}px`;
             element.style.height = `${pixelsPerUnit}px`;

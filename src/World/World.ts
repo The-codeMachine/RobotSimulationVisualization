@@ -2,6 +2,7 @@ import type { JsonObject } from "type-fest";
 import type { Transform } from "../lib/position/Transform";
 import { jsonToVector2, type Vector2 } from "../lib/position/Vector2";
 import { WorldObject } from "./WorldObject";
+import { WorldGrid } from "./WorldGrid";
 
 /**
  * Acts as a similar purpose to World in RobotSimulation. It simply has a bunch of objects that
@@ -10,11 +11,13 @@ import { WorldObject } from "./WorldObject";
  */
 export class World {
     private objects: Map<Vector2, WorldObject>;
+    private grid: WorldGrid;
 
     constructor(json: JsonObject) {
         this.objects = new Map<Vector2, WorldObject>();
-
         this.parseJSONToObjects(json);
+
+        this.grid = new WorldGrid(this.objects)
     }
 
     /**
@@ -62,6 +65,18 @@ export class World {
      */
     public deleteObject(position: Transform | Vector2): boolean {
         return this.objects.delete(this.safeParsePosition(position));
+    }
+
+    /**
+     * Displays the map by returning an HTML div element meant to represent its elements.
+     * 
+     * @param a 
+     * @param b 
+     * @param pixelsPerUnit 
+     * @returns the constructed HTML div element to represent the world
+     */
+    public display(a: Vector2, b: Vector2, pixelsPerUnit?: number): HTMLDivElement {
+        return this.grid.display(a, b, pixelsPerUnit);
     }
 
     /**
