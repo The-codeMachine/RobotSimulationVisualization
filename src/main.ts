@@ -1,5 +1,5 @@
 import type { JsonObject } from "type-fest";
-import { World } from "./World/World.js"; // Adjust import path to your World class
+import { World } from "./World/World.js"; 
 
 // Get the file input element from the DOM
 const filePicker = document.getElementById("file-picker") as HTMLInputElement | null;
