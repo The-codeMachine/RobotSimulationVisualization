@@ -1,5 +1,6 @@
 import type { JsonObject } from "type-fest";
 import { World } from "./World/World.js"; 
+import { Grid } from "./services/Grid.js";
 
 // Get the file input element from the DOM
 const filePicker = document.getElementById("file-picker") as HTMLInputElement | null;
@@ -27,6 +28,11 @@ if (filePicker) {
 
                 // Instantiate your World class
                 const world = new World(worldJson);
+                const grid = new Grid(world.getObjects());
+
+                const display = grid.display({x: 0, y: 0}, {x: 100, y: 100}, 100);
+
+                document.body.appendChild(display);
                 
                 console.log("World successfully loaded and parsed!", world);
                 

@@ -4,7 +4,7 @@ import type { WorldObject } from "../World/WorldObject";
 export class Grid {
     // Spatial bucket mapped to an array of objects inside that cell area
     private buckets = new Map<number | bigint, { pos: Vector2; value: string }[]>();
-    
+
     // Tracks where positions are stored for instant updates/deletions
     private positionToBucketKey = new Map<Vector2, number | bigint>();
 
@@ -31,11 +31,11 @@ export class Grid {
      */
     public insert(pos: Vector2, value: string): void {
         const key = this.getBucketKey(pos.x, pos.y);
-        
+
         if (!this.buckets.has(key)) {
             this.buckets.set(key, []);
         }
-        
+
         this.buckets.get(key)!.push({ pos, value });
         this.positionToBucketKey.set(pos, key);
     }
@@ -47,7 +47,7 @@ export class Grid {
     public update(pos: Vector2, newValue?: string): void {
         const oldKey = this.positionToBucketKey.get(pos);
         const newKey = this.getBucketKey(pos.x, pos.y);
-        
+
         if (oldKey === undefined) {
             // If it wasn't tracked, treat it as a fresh insertion
             if (newValue !== undefined) this.insert(pos, newValue);
@@ -74,7 +74,7 @@ export class Grid {
                 return;
             }
         }
-        
+
         // Fallback fallback if references mismatched inside tracking maps
         if (newValue !== undefined) this.insert(pos, newValue);
     }
@@ -116,7 +116,7 @@ export class Grid {
                 // Reconstruct the exact localized cell key integer
                 const key = ((bx & 0xFFFF) << 16) | (by & 0xFFFF);
                 const bucket = this.buckets.get(key);
-                
+
                 if (!bucket) continue;
 
                 // Fine-tuned distance filtering inside the cell loop
@@ -135,6 +135,113 @@ export class Grid {
         }
 
         return results;
+    }
+
+
+
+    /**
+     * Renders individual world-coordinate cells inside a rectangle.
+     *
+     * Each world coordinate gets its own HTML element.
+     * Spatial buckets are only used internally for efficient querying.
+     *
+     * @param a First corner of the viewing rectangle.
+     * @param b Opposing corner of the viewing rectangle.
+     * @param pixelsPerUnit Number of pixels per world unit.
+     */
+    public display(
+        a: Vector2,
+        b: Vector2,
+        pixelsPerUnit: number = 20
+    ): HTMLDivElement {
+        const minX = Math.min(a.x, b.x);
+        const maxX = Math.max(a.x, b.x);
+        const minY = Math.min(a.y, b.y);
+        const maxY = Math.max(a.y, b.y);
+
+        if (
+            !Number.isFinite(minX) ||
+            !Number.isFinite(maxX) ||
+            !Number.isFinite(minY) ||
+            !Number.isFinite(maxY) ||
+            maxX <= minX ||
+            maxY <= minY ||
+            !Number.isFinite(pixelsPerUnit) ||
+            pixelsPerUnit <= 0
+        ) {
+            throw new RangeError("Invalid display dimensions.");
+        }
+
+        const container = document.createElement("div");
+
+        container.className = "spatial-grid";
+        container.style.position = "relative";
+        container.style.overflow = "hidden";
+        container.style.boxSizing = "border-box";
+
+        const width = (maxX - minX) * pixelsPerUnit;
+        const height = (maxY - minY) * pixelsPerUnit;
+
+        container.style.width = `${width}px`;
+        container.style.height = `${height}px`;
+
+        // Grid lines occur at integer world coordinates.
+        const offsetX = ((-minX % 1) + 1) % 1 * pixelsPerUnit;
+        const offsetY = ((-minY % 1) + 1) % 1 * pixelsPerUnit;
+
+        container.style.backgroundColor = "#f8f8f8";
+
+        container.style.backgroundImage = `
+        linear-gradient(to right, #888 1px, transparent 1px),
+        linear-gradient(to bottom, #888 1px, transparent 1px)
+    `;
+
+        container.style.backgroundSize =
+            `${pixelsPerUnit}px ${pixelsPerUnit}px`;
+
+        container.style.backgroundPosition =
+            `${offsetX}px ${offsetY}px`;
+
+        // Get objects in the requested region.
+        const objects = this.queryRectangle(
+            { x: minX, y: minY },
+            { x: maxX, y: maxY }
+        );
+
+        // Render each world object at its actual position.
+        for (const item of objects) {
+            const element = document.createElement("div");
+
+            element.className = "spatial-grid-cell";
+            element.textContent = item.value;
+
+            element.style.position = "absolute";
+
+            element.style.left =
+                `${(item.pos.x - minX) * pixelsPerUnit}px`;
+
+            element.style.top =
+                `${(item.pos.y - minY) * pixelsPerUnit}px`;
+
+            element.style.width = `${pixelsPerUnit}px`;
+            element.style.height = `${pixelsPerUnit}px`;
+
+            element.style.transform = "translate(-50%, -50%)";
+
+            element.style.display = "flex";
+            element.style.alignItems = "center";
+            element.style.justifyContent = "center";
+
+            element.style.fontSize = `${pixelsPerUnit * 0.8}px`;
+            element.style.lineHeight = "1";
+
+            element.style.pointerEvents = "none";
+            element.style.userSelect = "none";
+
+            container.appendChild(element);
+        }
+
+        return container;
     }
 
     /**
