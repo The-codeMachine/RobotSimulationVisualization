@@ -29,11 +29,27 @@ if (filePicker) {
                 // Instantiate your World class
                 const world = new World(worldJson);
                 const grid = new WorldGrid(world.getObjects());
-
-                const display = grid.display({x: 0, y: 0}, {x: 100, y: 100}, 100);
-
-                document.body.appendChild(display);
                 
+                const worldEditor = document.getElementById("world-editor");
+                const gridViewport = document.getElementById("grid-viewport");
+                const options = document.getElementById("options");
+
+                if (!worldEditor) {
+                    throw new Error("Need a world editor HTML div element");
+                }
+
+                if (!gridViewport) {
+                    throw new Error("Need a grid viewport HTML div element");
+                }
+
+                if (!options) {
+                    throw new Error("Need an options HTML div element");
+                }
+
+                const display = grid.display({x: 0, y: 0}, {x: 100, y: 100}, 100, options);
+
+                gridViewport.appendChild(display);
+
                 console.log("World successfully loaded and parsed!", world);
 
                 // You can now use world.getObjects() to render or process your world data

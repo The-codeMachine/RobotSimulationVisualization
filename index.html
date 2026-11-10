@@ -1,17 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <link rel="stylesheet" href="style.css">
-        
-        <script type="module" src="/src/main.ts"></script>
-        
-        <title>Robot Simulation Visualization</title>
-    </head>
-    <body>
-        <label for="file-picker">Select a JSON World file to read:</label>
-        <input type="file" id="file-picker" accept=".json">
-    </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="style.css">
+
+    <script type="module" src="/src/main.ts"></script>
+
+    <title>Robot Simulation Visualization</title>
+</head>
+
+<body>
+    <div id="world-editor">
+        <div id="grid-viewport" class="viewport">
+            <!-- World viewport -->
+        </div>
+
+        <div id="options" class="right-panel">
+            <h1>Options</h1>
+
+            <label for="file-picker">
+                Select a JSON World file to read:
+            </label>
+            <input type="file" id="file-picker" accept=".json">
+        </div>
+    </div>
+</body>
+
 </html>

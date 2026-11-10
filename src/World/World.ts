@@ -75,8 +75,8 @@ export class World {
      * @param pixelsPerUnit 
      * @returns the constructed HTML div element to represent the world
      */
-    public display(a: Vector2, b: Vector2, pixelsPerUnit?: number): HTMLDivElement {
-        return this.grid.display(a, b, pixelsPerUnit);
+    public display(a: Vector2, b: Vector2, parent: HTMLElement, pixelsPerUnit?: number): HTMLDivElement {
+        return this.grid.display(a, b, pixelsPerUnit, parent);
     }
 
     /**

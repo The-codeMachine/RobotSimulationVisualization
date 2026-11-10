@@ -248,7 +248,7 @@ export class WorldGrid {
      * @param b Opposing corner of the viewing rectangle.
      * @param pixelsPerUnit Number of pixels per world unit.
      */
-    public display(a: Vector2, b: Vector2, pixelsPerUnit: number = 20): HTMLDivElement {
+    public display(a: Vector2, b: Vector2, pixelsPerUnit: number = 20, parent: HTMLElement): HTMLDivElement {
         const minX = Math.min(a.x, b.x);
         const maxX = Math.max(a.x, b.x);
         const minY = Math.min(a.y, b.y);
@@ -322,7 +322,8 @@ export class WorldGrid {
                 pos,
                 minX,
                 minY,
-                pixelsPerUnit
+                pixelsPerUnit,
+                parent
             );
 
             if (objectElement) {
@@ -383,7 +384,8 @@ export class WorldGrid {
         pos: Vector2,
         minX: number,
         minY: number,
-        pixelsPerUnit: number
+        pixelsPerUnit: number,
+        parent: HTMLElement
     ): HTMLButtonElement | undefined {
         const glyph = value.getGlyph();
 
@@ -428,7 +430,7 @@ export class WorldGrid {
 
         // Display the WorldObject when clicked.
         element.addEventListener("click", () => {
-            this.showWorldObject(value);
+            this.showWorldObject(value, parent);
         });
 
         return element;
@@ -439,9 +441,7 @@ export class WorldGrid {
      *
      * Replaces the existing WorldObject display if one already exists.
      */
-    private showWorldObject(
-        value: { display(): HTMLDivElement }
-    ): void {
+    private showWorldObject(value: { display(): HTMLDivElement }, parent:  HTMLElement): void {
         const element = value.display();
 
         element.id = "world-object-display";
@@ -451,7 +451,7 @@ export class WorldGrid {
         if (existing) {
             existing.replaceWith(element);
         } else {
-            document.body.appendChild(element);
+            parent.appendChild(element);
         }
     }
 
