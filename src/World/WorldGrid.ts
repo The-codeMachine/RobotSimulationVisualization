@@ -282,8 +282,8 @@ export class WorldGrid {
         container.style.height = `${height}px`;
 
         // Grid lines occur at integer world coordinates.
-        const offsetX = ((-minX % 1) + 1) % 1 * pixelsPerUnit;
-        const offsetY = ((-minY % 1) + 1) % 1 * pixelsPerUnit;
+        const offsetX = (((-minX % 1) + 1) % 1) * pixelsPerUnit;
+        const offsetY = (((-minY % 1) + 1) % 1) * pixelsPerUnit;
 
         container.style.backgroundColor = "#f8f8f8";
 
@@ -306,77 +306,153 @@ export class WorldGrid {
 
             const collider = value.getCollider();
 
-            // Draw the AABB collider.
             if (collider) {
-                const { minimum, maximum } = collider.data;
-
-                const colliderElement = document.createElement("div");
-
-                colliderElement.className = "spatial-grid-collider";
-
-                colliderElement.style.position = "absolute";
-
-                colliderElement.style.left = `${(minimum.x - minX) * pixelsPerUnit}px`;
-                colliderElement.style.top = `${(minimum.y - minY) * pixelsPerUnit}px`;
-                colliderElement.style.width = `${(maximum.x - minimum.x) * pixelsPerUnit}px`;
-                colliderElement.style.height = `${(maximum.y - minimum.y) * pixelsPerUnit}px`;
-
-                colliderElement.style.boxSizing = "border-box";
-
-                // Transparent blue collider visualization.
-                colliderElement.style.backgroundColor =
-                    "rgba(0, 150, 255, 0.15)";
-
-                colliderElement.style.border =
-                    "2px solid rgba(0, 120, 255, 0.85)";
-
-                colliderElement.style.zIndex = "1";
-
-                colliderElement.style.pointerEvents = "none";
-
-                container.appendChild(colliderElement);
+                container.appendChild(
+                    this.displayAABB(
+                        collider.data,
+                        minX,
+                        minY,
+                        pixelsPerUnit
+                    )
+                );
             }
 
-            // Draw the object's glyph above its collider.
-            const glyph = value.getGlyph();
+            const objectElement = this.displayObject(
+                value,
+                pos,
+                minX,
+                minY,
+                pixelsPerUnit
+            );
 
-            if (glyph !== undefined) {
-                const element = document.createElement("div");
-
-                element.className = "spatial-grid-cell";
-
-                element.textContent = glyph;
-
-                element.style.position = "absolute";
-
-                element.style.left =
-                    `${(pos.x - minX) * pixelsPerUnit}px`;
-
-                element.style.top =
-                    `${(pos.y - minY) * pixelsPerUnit}px`;
-
-                element.style.width = `${pixelsPerUnit}px`;
-                element.style.height = `${pixelsPerUnit}px`;
-
-                element.style.transform = "translate(-50%, -50%)";
-
-                element.style.display = "flex";
-                element.style.alignItems = "center";
-                element.style.justifyContent = "center";
-
-                element.style.fontSize = `${pixelsPerUnit * 0.8}px`;
-                element.style.lineHeight = "1";
-
-                element.style.zIndex = "2";
-
-                element.style.pointerEvents = "none";
-                element.style.userSelect = "none";
-
-                container.appendChild(element);
+            if (objectElement) {
+                container.appendChild(objectElement);
             }
         }
 
         return container;
+    }
+
+    /**
+     * Creates the visual representation of an axis-aligned bounding box.
+     */
+    private displayAABB(
+        data: {
+            minimum: Vector2;
+            maximum: Vector2;
+        },
+        minX: number,
+        minY: number,
+        pixelsPerUnit: number
+    ): HTMLDivElement {
+        const { minimum, maximum } = data;
+
+        const element = document.createElement("div");
+
+        element.className = "spatial-grid-collider";
+
+        element.style.position = "absolute";
+
+        element.style.left = `${(minimum.x - minX) * pixelsPerUnit}px`;
+        element.style.top = `${(minimum.y - minY) * pixelsPerUnit}px`;
+        element.style.width = `${(maximum.x - minimum.x) * pixelsPerUnit}px`;
+        element.style.height = `${(maximum.y - minimum.y) * pixelsPerUnit}px`;
+
+        element.style.boxSizing = "border-box";
+
+        // Transparent blue collider visualization.
+        element.style.backgroundColor = "rgba(0, 150, 255, 0.15)";
+        element.style.border = "2px solid rgba(0, 120, 255, 0.85)";
+
+        element.style.zIndex = "1";
+        element.style.pointerEvents = "none";
+
+        return element;
+    }
+
+    /**
+     * Creates a clickable button representing a world object.
+     *
+     * Clicking the button displays the corresponding WorldObject.
+     */
+    private displayObject(
+        value: {
+            getGlyph(): string | undefined;
+            display(): HTMLDivElement;
+        },
+        pos: Vector2,
+        minX: number,
+        minY: number,
+        pixelsPerUnit: number
+    ): HTMLButtonElement | undefined {
+        const glyph = value.getGlyph();
+
+        if (glyph === undefined) {
+            return undefined;
+        }
+
+        const element = document.createElement("button");
+
+        element.type = "button";
+        element.className = "spatial-grid-cell";
+
+        element.textContent = glyph;
+
+        element.style.position = "absolute";
+
+        element.style.left = `${(pos.x - minX) * pixelsPerUnit}px`;
+
+        element.style.top = `${(pos.y - minY) * pixelsPerUnit}px`;
+
+        element.style.width = `${pixelsPerUnit}px`;
+        element.style.height = `${pixelsPerUnit}px`;
+
+        element.style.transform = "translate(-50%, -50%)";
+
+        element.style.display = "flex";
+        element.style.alignItems = "center";
+        element.style.justifyContent = "center";
+
+        element.style.fontSize = `${pixelsPerUnit * 0.8}px`;
+        element.style.lineHeight = "1";
+
+        element.style.zIndex = "2";
+
+        element.style.padding = "0";
+        element.style.border = "none";
+        element.style.background = "transparent";
+        element.style.color = "inherit";
+        element.style.cursor = "pointer";
+
+        element.style.userSelect = "none";
+
+        // Display the WorldObject when clicked.
+        element.addEventListener("click", () => {
+            this.showWorldObject(value);
+        });
+
+        return element;
+    }
+
+    /**
+     * Displays a WorldObject in the document body.
+     *
+     * Replaces the existing WorldObject display if one already exists.
+     */
+    private showWorldObject(
+        value: { display(): HTMLDivElement }
+    ): void {
+        const element = value.display();
+
+        element.id = "world-object-display";
+
+        const existing = document.getElementById("world-object-display");
+
+        if (existing) {
+            existing.replaceWith(element);
+        } else {
+            document.body.appendChild(element);
+        }
     }
 
     /**
