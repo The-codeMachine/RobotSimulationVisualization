@@ -35,7 +35,14 @@ if (filePicker) {
                 document.body.appendChild(display);
                 
                 console.log("World successfully loaded and parsed!", world);
-                
+
+                const obj = world.getObject({ x: 0, y: 0 });
+                console.log("loaded object");
+                if (obj) {
+                    console.log("object exists");
+                    document.body.appendChild(obj.display());
+                }
+
                 // You can now use world.getObjects() to render or process your world data
             } else {
                 console.error("Invalid world file: Root JSON structure must be an object.");

@@ -1,6 +1,6 @@
 import type { JsonObject } from "type-fest";
 import type { Transform } from "../lib/position/Transform";
-import { jsonToVector2, type Vector2 } from "../lib/position/Vector2";
+import { jsonToVector2, vector2ToString, type Vector2 } from "../lib/position/Vector2";
 import { WorldObject } from "./WorldObject";
 import { WorldGrid } from "./WorldGrid";
 
@@ -10,11 +10,11 @@ import { WorldGrid } from "./WorldGrid";
  * from a JSON file path. 
  */
 export class World {
-    private objects: Map<Vector2, WorldObject>;
+    private objects: Map<string, WorldObject>;
     private grid: WorldGrid;
 
     constructor(json: JsonObject) {
-        this.objects = new Map<Vector2, WorldObject>();
+        this.objects = new Map<string, WorldObject>();
         this.parseJSONToObjects(json);
 
         this.grid = new WorldGrid(this.objects)
@@ -23,7 +23,7 @@ export class World {
     /**
      * @returns the map of objects location in the world
      */
-    public getObjects(): Map<Vector2, WorldObject> {
+    public getObjects(): Map<string, WorldObject> {
         return this.objects;
     }
 
@@ -34,7 +34,7 @@ export class World {
      * @returns the object at a certai Vector2 position
      */
     public getObject(position: Transform | Vector2): WorldObject | undefined {
-        return this.objects.get(this.safeParsePosition(position));
+        return this.objects.get(this.positionToKey(position));
     }
 
     /**
@@ -42,7 +42,7 @@ export class World {
      * @returns whether or not an object exists at a certain position
      */
     public hasObject(position: Transform | Vector2): boolean {
-        return this.objects.has(this.safeParsePosition(position));
+        return this.objects.has(this.positionToKey(position));
     }
 
     /**
@@ -54,7 +54,7 @@ export class World {
      * @param object 
      */
     public insertObject(position: Transform | Vector2, object: WorldObject): void {
-        this.objects.set(this.safeParsePosition(position), object);
+        this.objects.set(this.positionToKey(position), object);
     }
 
     /**
@@ -64,7 +64,7 @@ export class World {
      * @returns whether or not the deletion was successful or not (true if it was successful)
      */
     public deleteObject(position: Transform | Vector2): boolean {
-        return this.objects.delete(this.safeParsePosition(position));
+        return this.objects.delete(this.positionToKey(position));
     }
 
     /**
@@ -77,6 +77,18 @@ export class World {
      */
     public display(a: Vector2, b: Vector2, pixelsPerUnit?: number): HTMLDivElement {
         return this.grid.display(a, b, pixelsPerUnit);
+    }
+
+    /**
+     * Converts a specific Vector2 or Transform position to an actual key. It converts
+     * it to a string version. This only converts the position of the transform into
+     * a key, not the entire Transform.
+     * 
+     * @param position 
+     * @returns the key based off the given key
+     */
+    private positionToKey(position: Transform | Vector2): string {
+        return vector2ToString(this.safeParsePosition(position));
     }
 
     /**
@@ -94,6 +106,12 @@ export class World {
         }
     }
 
+    /**
+     * Checks whether or not a specific value is a JSON value
+     * 
+     * @param value 
+     * @returns true if the value is a json object and false otherwise
+     */
     private isJsonObject(value: unknown): value is JsonObject {
         return (
             typeof value === "object" &&
@@ -102,6 +120,11 @@ export class World {
         );
     }
 
+    /**
+     * Parses the inputted JSON into objects for this World. 
+     * 
+     * @param json 
+     */
     private parseJSONToObjects(json: JsonObject): void {
         // Validate version
         if (json.version !== 1) {

@@ -115,6 +115,89 @@ export class WorldObject {
     }
 
     /**
+     * Creates a DOM element displaying a JSON value.
+     *
+     * Supports:
+     * - Strings
+     * - Numbers
+     * - Booleans
+     * - Null
+     * - Arrays
+     * - Nested objects
+     */
+    private renderValue(value: unknown): HTMLElement {
+        if (value === null) {
+            const element = document.createElement("span");
+            element.className = "json-null";
+            element.textContent = "null";
+            return element;
+        }
+
+        if (Array.isArray(value)) {
+            const container = document.createElement("div");
+            container.className = "json-array";
+
+            if (value.length === 0) {
+                container.textContent = "Empty array";
+                return container;
+            }
+
+            value.forEach((item, index) => {
+                const entry = document.createElement("div");
+                entry.className = "json-array-item";
+
+                const indexLabel = document.createElement("span");
+                indexLabel.className = "json-index";
+                indexLabel.textContent = `[${index}]`;
+
+                entry.append(indexLabel, this.renderValue(item));
+                container.appendChild(entry);
+            });
+
+            return container;
+        }
+
+        if (typeof value === "object") {
+            const container = document.createElement("div");
+            container.className = "json-object";
+
+            const entries = Object.entries(value);
+
+            if (entries.length === 0) {
+                container.textContent = "Empty object";
+                return container;
+            }
+
+            for (const [key, childValue] of entries) {
+                const entry = document.createElement("div");
+                entry.className = "json-property";
+
+                const keyElement = document.createElement("span");
+                keyElement.className = "json-key";
+                keyElement.textContent = key;
+
+                const valueElement = document.createElement("div");
+                valueElement.className = "json-value";
+                valueElement.appendChild(this.renderValue(childValue));
+
+                entry.append(keyElement, valueElement);
+                container.appendChild(entry);
+            }
+
+            return container;
+        }
+
+        const element = document.createElement("span");
+
+        element.className = `json-${typeof value}`;
+
+        // textContent prevents JSON strings from being interpreted as HTML.
+        element.textContent = String(value);
+
+        return element;
+    }
+
+    /**
      * @returns The original JSON data for this object.
      */
     public getData(): JsonObject {
@@ -156,5 +239,50 @@ export class WorldObject {
      */
     public getCollider(): AABBCollider | undefined {
         return this.collider;
+    }
+
+    /**
+     * Creates a visual representation of a WorldObject.
+     *
+     * @param worldObject The object to display.
+     * @returns An HTMLDivElement containing all of its JSON data.
+     */
+    public display(): HTMLDivElement {
+        const container = document.createElement("div");
+        container.className = "world-object";
+
+        // Header
+        const header = document.createElement("div");
+        header.className = "world-object-header";
+
+        const title = document.createElement("h2");
+        title.textContent = this.getType() ?? "WorldObject";
+
+        const id = document.createElement("span");
+        id.className = "world-object-id";
+        id.textContent = this.getUniqueId();
+
+        header.append(title, id);
+        container.appendChild(header);
+
+        // Glyph
+        const glyph = this.getGlyph();
+
+        if (glyph !== undefined) {
+            const glyphElement = document.createElement("div");
+            glyphElement.className = "world-object-glyph";
+            glyphElement.textContent = glyph;
+
+            container.appendChild(glyphElement);
+        }
+
+        // All original JSON data
+        const dataHeading = document.createElement("h3");
+        dataHeading.textContent = "Object Data";
+
+        container.appendChild(dataHeading);
+        container.appendChild(this.renderValue(this.getData()));
+
+        return container;
     }
 }

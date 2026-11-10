@@ -1,5 +1,5 @@
 
-import type { Vector2 } from "../lib/position/Vector2.js";
+import { stringToVector2, type Vector2 } from "../lib/position/Vector2.js";
 import type { WorldObject } from "./WorldObject.js";
 
 interface GridEntry {
@@ -24,7 +24,7 @@ export class WorldGrid {
      */
     private readonly cellSize = 10;
 
-    constructor(map: Map<Vector2, WorldObject>) {
+    constructor(map: Map<string, WorldObject>) {
         this.fillGrid(map);
     }
 
@@ -382,12 +382,12 @@ export class WorldGrid {
     /**
      * Rebuilds the entire spatial grid from a WorldObject map.
      */
-    private fillGrid(map: Map<Vector2, WorldObject>): void {
+    private fillGrid(map: Map<string, WorldObject>): void {
         this.buckets.clear();
         this.positionToBucketKeys.clear();
 
         for (const [pos, obj] of map) {
-            this.insert(pos, obj);
+            this.insert(stringToVector2(pos), obj);
         }
     }
 }

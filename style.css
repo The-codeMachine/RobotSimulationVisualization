@@ -1,0 +1,99 @@
+/*
+    JSON Styling (for WorldObjects)
+*/
+
+
+.world-object {
+    font-family: system-ui, sans-serif;
+    color: #e5e7eb;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+    overflow-wrap: anywhere;
+}
+
+.world-object-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #374151;
+    padding-bottom: 10px;
+}
+
+.world-object-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.world-object-id {
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.world-object-glyph {
+    font-size: 2rem;
+    margin: 12px 0;
+}
+
+.world-object h3 {
+    font-size: 1rem;
+    margin-top: 16px;
+}
+
+.json-object {
+    border-left: 2px solid #4b5563;
+    margin-left: 8px;
+    padding-left: 12px;
+}
+
+.json-property {
+    margin: 8px 0;
+}
+
+.json-key {
+    display: block;
+    color: #93c5fd;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.json-value {
+    margin-left: 8px;
+}
+
+.json-array {
+    border-left: 2px solid #4b5563;
+    margin-left: 8px;
+    padding-left: 12px;
+}
+
+.json-array-item {
+    display: flex;
+    gap: 10px;
+    margin: 5px 0;
+}
+
+.json-index {
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.json-string {
+    color: #86efac;
+}
+
+.json-number {
+    color: #fcd34d;
+}
+
+.json-boolean {
+    color: #c4b5fd;
+}
+
+.json-null {
+    color: #9ca3af;
+    font-style: italic;
+}
