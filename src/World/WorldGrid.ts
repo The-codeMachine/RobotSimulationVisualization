@@ -1,133 +1,234 @@
-import { type Vector2 } from "../lib/position/Vector2";
-import type { WorldObject } from "./WorldObject";
+
+import type { Vector2 } from "../lib/position/Vector2.js";
+import type { WorldObject } from "./WorldObject.js";
+
+interface GridEntry {
+    pos: Vector2;
+    value: WorldObject;
+}
 
 export class WorldGrid {
-    // Spatial bucket mapped to an array of objects inside that cell area
-    private buckets = new Map<number | bigint, { pos: Vector2; value: string }[]>();
+    /**
+     * Spatial buckets containing objects whose AABBs overlap
+     * the corresponding bucket.
+     */
+    private readonly buckets = new Map<string, GridEntry[]>();
 
-    // Tracks where positions are stored for instant updates/deletions
-    private positionToBucketKey = new Map<Vector2, number | bigint>();
+    /**
+     * Tracks every bucket occupied by each object position.
+     */
+    private readonly positionToBucketKeys = new Map<Vector2, string[]>();
 
-    // Determines the spatial cell width/height. Adjust this based on query sizes!
-    private readonly cellSize: number = 10;
+    /**
+     * Determines the spatial cell width and height.
+     */
+    private readonly cellSize = 10;
 
     constructor(map: Map<Vector2, WorldObject>) {
         this.fillGrid(map);
     }
 
     /**
-     * Highly performant, allocation-free numeric hash combining bucket integers.
-     * Maps fractional x/y positions into unique numeric grid keys.
+     * Generates a unique key for a spatial bucket.
+     *
+     * String keys avoid the coordinate collisions possible
+     * with the previous 16-bit integer packing.
      */
-    private getBucketKey(x: number, y: number): number {
-        const bx = Math.floor(x / this.cellSize) | 0;
-        const by = Math.floor(y / this.cellSize) | 0;
-        // Fast 32-bit integer pairing hash (handles negative and positive coordinates cleanly)
-        return ((bx & 0xFFFF) << 16) | (by & 0xFFFF);
+    private getBucketKey(x: number, y: number): string {
+        const bx = Math.floor(x / this.cellSize);
+        const by = Math.floor(y / this.cellSize);
+
+        return `${bx},${by}`;
     }
 
     /**
-     * Mutably inserts a new vector position and its corresponding string value into the grid.
+     * Gets the world-space bounds of an object.
+     *
+     * Objects without colliders are treated as points.
      */
-    public insert(pos: Vector2, value: string): void {
-        const key = this.getBucketKey(pos.x, pos.y);
+    private getBounds(obj: WorldObject, pos: Vector2) {
+        const collider = obj.getCollider();
 
-        if (!this.buckets.has(key)) {
-            this.buckets.set(key, []);
+        if (!collider) {
+            return {
+                minX: pos.x,
+                minY: pos.y,
+                maxX: pos.x,
+                maxY: pos.y
+            };
         }
 
-        this.buckets.get(key)!.push({ pos, value });
-        this.positionToBucketKey.set(pos, key);
+        return {
+            minX: collider.data.minimum.x,
+            minY: collider.data.minimum.y,
+            maxX: collider.data.maximum.x,
+            maxY: collider.data.maximum.y
+        };
     }
 
     /**
-     * Mutably updates an existing Vector2 position's coordinates or inner value,
-     * dynamically re-bucketing it if it crossed spatial cell boundaries.
+     * Determines every spatial bucket overlapped by an object.
      */
-    public update(pos: Vector2, newValue?: string): void {
-        const oldKey = this.positionToBucketKey.get(pos);
-        const newKey = this.getBucketKey(pos.x, pos.y);
+    private getOccupiedBucketKeys(obj: WorldObject, pos: Vector2): string[] {
+        const bounds = this.getBounds(obj, pos);
 
-        if (oldKey === undefined) {
-            // If it wasn't tracked, treat it as a fresh insertion
-            if (newValue !== undefined) this.insert(pos, newValue);
+        const startX = Math.floor(bounds.minX / this.cellSize);
+        const endX = Math.floor(bounds.maxX / this.cellSize);
+
+        const startY = Math.floor(bounds.minY / this.cellSize);
+        const endY = Math.floor(bounds.maxY / this.cellSize);
+
+        const keys: string[] = [];
+
+        for (let bx = startX; bx <= endX; bx++) {
+            for (let by = startY; by <= endY; by++) {
+                keys.push(this.getBucketKey(
+                    bx * this.cellSize,
+                    by * this.cellSize
+                ));
+            }
+        }
+
+        return keys;
+    }
+
+    /**
+     * Inserts an object into every bucket its collider overlaps.
+     */
+    public insert(pos: Vector2, value: WorldObject): void {
+        if (this.positionToBucketKeys.has(pos)) {
+            throw new Error("Object position is already indexed.");
+        }
+
+        const entry: GridEntry = { pos, value };
+
+        const keys = this.getOccupiedBucketKeys(value, pos);
+
+        for (const key of keys) {
+            let bucket = this.buckets.get(key);
+
+            if (!bucket) {
+                bucket = [];
+                this.buckets.set(key, bucket);
+            }
+
+            bucket.push(entry);
+        }
+
+        this.positionToBucketKeys.set(pos, keys);
+    }
+
+    /**
+     * Updates an existing object.
+     *
+     * Re-indexes it if its position or collider has changed.
+     */
+    public update(pos: Vector2, newValue?: WorldObject): void {
+        const oldKeys = this.positionToBucketKeys.get(pos);
+
+        if (!oldKeys) {
+            if (newValue) {
+                this.insert(pos, newValue);
+            }
+
             return;
         }
 
-        // Find the record in the old spatial bucket
-        const oldBucket = this.buckets.get(oldKey);
-        if (oldBucket) {
-            const idx = oldBucket.findIndex(item => item.pos === pos);
-            if (idx !== -1) {
-                const item = oldBucket[idx];
-                if (newValue !== undefined) item.value = newValue;
+        const oldBucket = this.buckets.get(oldKeys[0]);
 
-                // If the object migrated to a different spatial cell, shift its bucket location
-                if (oldKey !== newKey) {
-                    oldBucket.splice(idx, 1);
-                    if (oldBucket.length === 0) this.buckets.delete(oldKey);
+        const entry = oldBucket?.find(item => item.pos === pos);
 
-                    if (!this.buckets.has(newKey)) this.buckets.set(newKey, []);
-                    this.buckets.get(newKey)!.push(item);
-                    this.positionToBucketKey.set(pos, newKey);
-                }
-                return;
-            }
+        if (!entry) {
+            throw new Error("Grid index is inconsistent.");
         }
 
-        // Fallback fallback if references mismatched inside tracking maps
-        if (newValue !== undefined) this.insert(pos, newValue);
+        const value = newValue ?? entry.value;
+
+        this.delete(pos);
+        this.insert(pos, value);
     }
 
     /**
-     * Mutably removes a Vector2 position and its data entirely from the spatial tracking grid.
+     * Removes an object from all occupied spatial buckets.
      */
     public delete(pos: Vector2): boolean {
-        const key = this.positionToBucketKey.get(pos);
-        if (key === undefined) return false;
+        const keys = this.positionToBucketKeys.get(pos);
 
-        const bucket = this.buckets.get(key);
-        if (bucket) {
-            const idx = bucket.findIndex(item => item.pos === pos);
-            if (idx !== -1) {
-                bucket.splice(idx, 1);
-                if (bucket.length === 0) this.buckets.delete(key);
-                this.positionToBucketKey.delete(pos);
-                return true;
+        if (!keys) {
+            return false;
+        }
+
+        for (const key of keys) {
+            const bucket = this.buckets.get(key);
+
+            if (!bucket) continue;
+
+            const index = bucket.findIndex(
+                item => item.pos === pos
+            );
+
+            if (index !== -1) {
+                bucket.splice(index, 1);
+            }
+
+            if (bucket.length === 0) {
+                this.buckets.delete(key);
             }
         }
-        return false;
+
+        this.positionToBucketKeys.delete(pos);
+
+        return true;
     }
 
     /**
-     * Queries only the localized spatial buckets overlapping the bounding box.
-     * Safely processes real/floating-point values with O(1) cell matching.
+     * Queries all objects whose AABBs overlap a rectangle.
      */
-    public queryRectangle(min: Vector2, max: Vector2): { pos: Vector2; value: string }[] {
-        const results: { pos: Vector2; value: string }[] = [];
+    public queryRectangle(min: Vector2, max: Vector2): GridEntry[] {
+        if (!Number.isFinite(min.x) ||
+            !Number.isFinite(min.y) ||
+            !Number.isFinite(max.x) ||
+            !Number.isFinite(max.y) ||
+            min.x > max.x ||
+            min.y > max.y
+        ) {
+            throw new RangeError("Invalid query rectangle.");
+        }
+
+        const results: GridEntry[] = [];
+        const seen = new Set<GridEntry>();
 
         const startX = Math.floor(min.x / this.cellSize);
         const endX = Math.floor(max.x / this.cellSize);
+
         const startY = Math.floor(min.y / this.cellSize);
         const endY = Math.floor(max.y / this.cellSize);
 
         for (let bx = startX; bx <= endX; bx++) {
             for (let by = startY; by <= endY; by++) {
-                // Reconstruct the exact localized cell key integer
-                const key = ((bx & 0xFFFF) << 16) | (by & 0xFFFF);
+                const key = `${bx},${by}`;
                 const bucket = this.buckets.get(key);
 
                 if (!bucket) continue;
 
-                // Fine-tuned distance filtering inside the cell loop
-                for (let i = 0; i < bucket.length; i++) {
-                    const item = bucket[i];
-                    if (
-                        item.pos.x >= min.x &&
-                        item.pos.x <= max.x &&
-                        item.pos.y >= min.y &&
-                        item.pos.y <= max.y
-                    ) {
+                for (const item of bucket) {
+                    if (seen.has(item)) continue;
+
+                    seen.add(item);
+
+                    const bounds = this.getBounds(
+                        item.value,
+                        item.pos
+                    );
+
+                    // Actual AABB intersection test.
+                    const overlaps =
+                        bounds.maxX >= min.x &&
+                        bounds.minX <= max.x &&
+                        bounds.maxY >= min.y &&
+                        bounds.minY <= max.y;
+
+                    if (overlaps) {
                         results.push(item);
                     }
                 }
@@ -137,13 +238,11 @@ export class WorldGrid {
         return results;
     }
 
-
-
     /**
-     * Renders individual world-coordinate cells inside a rectangle.
+     * Renders objects and their colliders inside a viewing rectangle.
      *
-     * Each world coordinate gets its own HTML element.
-     * Spatial buckets are only used internally for efficient querying.
+     * Each object gets an individual HTML element.
+     * AABB colliders are rendered as transparent blue rectangles.
      *
      * @param a First corner of the viewing rectangle.
      * @param b Opposing corner of the viewing rectangle.
@@ -155,7 +254,8 @@ export class WorldGrid {
         const minY = Math.min(a.y, b.y);
         const maxY = Math.max(a.y, b.y);
 
-        if (!Number.isFinite(minX) ||
+        if (
+            !Number.isFinite(minX) ||
             !Number.isFinite(maxX) ||
             !Number.isFinite(minY) ||
             !Number.isFinite(maxY) ||
@@ -170,6 +270,7 @@ export class WorldGrid {
         const container = document.createElement("div");
 
         container.className = "spatial-grid";
+
         container.style.position = "relative";
         container.style.overflow = "hidden";
         container.style.boxSizing = "border-box";
@@ -194,62 +295,99 @@ export class WorldGrid {
         container.style.backgroundSize = `${pixelsPerUnit}px ${pixelsPerUnit}px`;
         container.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
 
-        // Get objects in the requested region.
+        // Find all objects whose colliders overlap the viewing area.
         const objects = this.queryRectangle(
             { x: minX, y: minY },
             { x: maxX, y: maxY }
         );
 
-        // Render each world object at its actual position.
         for (const item of objects) {
-            const element = document.createElement("div");
+            const { pos, value } = item;
 
-            element.className = "spatial-grid-cell";
-            element.textContent = item.value;
+            const collider = value.getCollider();
 
-            element.style.position = "absolute";
+            // Draw the AABB collider.
+            if (collider) {
+                const { minimum, maximum } = collider.data;
 
-            element.style.left = `${(item.pos.x - minX) * pixelsPerUnit}px`;
-            element.style.top = `${(item.pos.y - minY) * pixelsPerUnit}px`;
+                const colliderElement = document.createElement("div");
 
-            element.style.width = `${pixelsPerUnit}px`;
-            element.style.height = `${pixelsPerUnit}px`;
+                colliderElement.className = "spatial-grid-collider";
 
-            element.style.transform = "translate(-50%, -50%)";
+                colliderElement.style.position = "absolute";
 
-            element.style.display = "flex";
-            element.style.alignItems = "center";
-            element.style.justifyContent = "center";
+                colliderElement.style.left = `${(minimum.x - minX) * pixelsPerUnit}px`;
+                colliderElement.style.top = `${(minimum.y - minY) * pixelsPerUnit}px`;
+                colliderElement.style.width = `${(maximum.x - minimum.x) * pixelsPerUnit}px`;
+                colliderElement.style.height = `${(maximum.y - minimum.y) * pixelsPerUnit}px`;
 
-            element.style.fontSize = `${pixelsPerUnit * 0.8}px`;
-            element.style.lineHeight = "1";
+                colliderElement.style.boxSizing = "border-box";
 
-            element.style.pointerEvents = "none";
-            element.style.userSelect = "none";
+                // Transparent blue collider visualization.
+                colliderElement.style.backgroundColor =
+                    "rgba(0, 150, 255, 0.15)";
 
-            container.appendChild(element);
+                colliderElement.style.border =
+                    "2px solid rgba(0, 120, 255, 0.85)";
+
+                colliderElement.style.zIndex = "1";
+
+                colliderElement.style.pointerEvents = "none";
+
+                container.appendChild(colliderElement);
+            }
+
+            // Draw the object's glyph above its collider.
+            const glyph = value.getGlyph();
+
+            if (glyph !== undefined) {
+                const element = document.createElement("div");
+
+                element.className = "spatial-grid-cell";
+
+                element.textContent = glyph;
+
+                element.style.position = "absolute";
+
+                element.style.left =
+                    `${(pos.x - minX) * pixelsPerUnit}px`;
+
+                element.style.top =
+                    `${(pos.y - minY) * pixelsPerUnit}px`;
+
+                element.style.width = `${pixelsPerUnit}px`;
+                element.style.height = `${pixelsPerUnit}px`;
+
+                element.style.transform = "translate(-50%, -50%)";
+
+                element.style.display = "flex";
+                element.style.alignItems = "center";
+                element.style.justifyContent = "center";
+
+                element.style.fontSize = `${pixelsPerUnit * 0.8}px`;
+                element.style.lineHeight = "1";
+
+                element.style.zIndex = "2";
+
+                element.style.pointerEvents = "none";
+                element.style.userSelect = "none";
+
+                container.appendChild(element);
+            }
         }
 
         return container;
     }
 
     /**
-     * Gets the Object's glyph as a String from a WorldObject.
-     */
-    private parseWorldObject(obj: WorldObject): string {
-        const data = obj.getData();
-        return data.glyph as string;
-    }
-
-    /**
-     * Fills the spatial structure full of values based off the passed Vector2, WorldObject map.
+     * Rebuilds the entire spatial grid from a WorldObject map.
      */
     private fillGrid(map: Map<Vector2, WorldObject>): void {
         this.buckets.clear();
-        this.positionToBucketKey.clear();
+        this.positionToBucketKeys.clear();
 
         for (const [pos, obj] of map) {
-            this.insert(pos, this.parseWorldObject(obj));
+            this.insert(pos, obj);
         }
     }
 }

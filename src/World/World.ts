@@ -118,14 +118,6 @@ export class World {
                 throw new Error("Invalid object encountered in world JSON");
             }
 
-            // Validate object properties
-            if (typeof object.type !== "string" ||
-                typeof object.glyph !== "string" ||
-                typeof object.unique_id !== "string"
-            ) {
-                throw new Error("Invalid WorldObject properties");
-            }
-
             // Validate transform
             const transform = object.transform;
 
@@ -148,14 +140,7 @@ export class World {
             }
 
             // Construct WorldObject
-            const worldObject = new WorldObject({
-                data: {
-                    type: object.type,
-                    glyph: object.glyph
-                },
-                transform: transform,
-                uniqueId: object.unique_id
-            });
+            const worldObject = new WorldObject(object);
 
             // Insert into world
             const position: Vector2 = jsonToVector2(vector2);

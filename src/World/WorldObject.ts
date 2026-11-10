@@ -1,53 +1,160 @@
 import type { JsonObject } from "type-fest";
 import { jsonToTransform, type Transform } from "../lib/position/Transform.js";
+import type { Vector2 } from "../lib/position/Vector2.js";
 
 /**
- * This represents one complete world Object. This is not similar to RobotSimulation's
- * object. This may be a Robot, a wall, an empty, or even a device. This is intended
- * to represent anything within the world. Everything will have its own custom data 
- * pool of variables, as well as a transform representing its positional data and its
- * unique id. 
- * 
- * This class is designed to encapsulate that information.
+ * Axis-aligned bounding box collider.
+ *
+ * The coordinates are expressed in world space.
+ */
+export interface AABBCollider {
+    type: "AABBCollider";
+    data: {
+        minimum: Vector2;
+        maximum: Vector2;
+    };
+}
+
+/**
+ * Represents one complete object within the world.
+ *
+ * Objects can represent walls, robots, devices, empty objects,
+ * or any other entity that exists within the world.
+ *
+ * The original JSON is preserved, while commonly accessed
+ * properties are exposed through typed getters.
  */
 export class WorldObject {
-    private data: JsonObject;
-    private transform: Transform;
+    private readonly data: JsonObject;
+    private readonly transform: Transform;
     private readonly uniqueId: string;
+    private readonly collider?: AABBCollider;
 
-    constructor(json: JsonObject, transform?: Transform, uniqueId?: string) {
-        if (json && transform && uniqueId) {
-            this.data = json;
-            this.transform = transform;
-            this.uniqueId = uniqueId;
-        } else if (json && !transform && !uniqueId) {
-            this.data = json.data as JsonObject;
-            this.transform = jsonToTransform(json.transform as JsonObject);
-            this.uniqueId = json.uniqueId as string; 
-        } else {
-            throw new Error(`Invalid parameters for WorldObject constructor. 
-                            Need either a complete json or data, transform and uniqueId`);
+    constructor(json: JsonObject) {
+        if (!json || typeof json !== "object") {
+            throw new TypeError("Invalid WorldObject JSON.");
         }
+
+        if (typeof json.unique_id !== "string" || !json.unique_id) {
+            throw new TypeError("WorldObject requires a valid unique_id.");
+        }
+
+        if (!json.transform || typeof json.transform !== "object") {
+            throw new TypeError("WorldObject requires a valid transform.");
+        }
+
+        this.data = json;
+        this.transform = jsonToTransform(json.transform as JsonObject);
+        this.uniqueId = json.unique_id;
+
+        this.collider = this.parseCollider(json.collider);
     }
 
     /**
-     * @returns the current data of this object
+     * Parses and validates the collider from the object's JSON.
+     */
+    private parseCollider(value: unknown): AABBCollider | undefined {
+        if (value === undefined || value === null) {
+            return undefined;
+        }
+
+        if (typeof value !== "object" || Array.isArray(value)) {
+            throw new TypeError("Invalid collider definition.");
+        }
+
+        const collider = value as Record<string, unknown>;
+        if (collider.type !== "AABBCollider") {
+            throw new TypeError(`Unsupported collider type: ${String(collider.type)}`);
+        }
+
+        if (typeof collider.data !== "object" ||
+            collider.data === null ||
+            Array.isArray(collider.data)
+        ) {
+            throw new TypeError("Invalid AABB collider data.");
+        }
+
+        const data = collider.data as Record<string, unknown>;
+
+        const minimum = data.minimum;
+        const maximum = data.maximum;
+
+        const isVector2 = (vector: unknown): vector is { x: number; y: number } => {
+            if (typeof vector !== "object" ||
+                vector === null ||
+                Array.isArray(vector)
+            ) {
+                return false;
+            }
+
+            const v = vector as Record<string, unknown>;
+
+            return (
+                typeof v.x === "number" &&
+                Number.isFinite(v.x) &&
+                typeof v.y === "number" &&
+                Number.isFinite(v.y)
+            );
+        };
+
+        if (!isVector2(minimum) || !isVector2(maximum)) {
+            throw new TypeError("Invalid AABB minimum or maximum.");
+        }
+
+        if (minimum.x > maximum.x || minimum.y > maximum.y) {
+            throw new RangeError("AABB minimum cannot exceed its maximum.");
+        }
+
+        return {
+            type: "AABBCollider",
+            data: {
+                minimum,
+                maximum
+            }
+        };
+    }
+
+    /**
+     * @returns The original JSON data for this object.
      */
     public getData(): JsonObject {
         return this.data;
     }
 
     /**
-     * @returns the current transform of this object
+     * @returns The object's transform.
      */
     public getTransform(): Transform {
         return this.transform;
     }
 
     /**
-     * @returns the unique id of this object
+     * @returns The object's unique identifier.
      */
     public getUniqueId(): string {
         return this.uniqueId;
+    }
+
+    /**
+     * @returns The object's glyph, if defined.
+     */
+    public getGlyph(): string | undefined {
+        const glyph = this.data.glyph;
+        return typeof glyph === "string" ? glyph : undefined;
+    }
+
+    /**
+     * @returns The object's type, if defined.
+     */
+    public getType(): string | undefined {
+        const type = this.data.type;
+        return typeof type === "string" ? type : undefined;
+    }
+
+    /**
+     * @returns The object's AABB collider, if one exists.
+     */
+    public getCollider(): AABBCollider | undefined {
+        return this.collider;
     }
 }
